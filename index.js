@@ -1,119 +1,52 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
 const cron = require('node-cron');
 const dotenv = require('dotenv');
+const { App } = require('@slack/bolt');
+const crawling = require('./crawling');
 
 dotenv.config();
 
-const noticeNum = {
-    '333': '일반공지',
-    '335': '학사',
-    '337': '취업',
-    '338': '장학'
-};
-
-const token = process.env.TOKEN;
-
-async function crawling () {
-    const notice = [];
-    let sectionNotice;
-    for (let key in noticeNum){
-        console.log(`-----[${noticeNum[key]}]-----`);
-        const html = await axios.get(`http://board.sejong.ac.kr/boardlist.do?bbsConfigFK=${key}`);
-        const $ = cheerio.load(html.data);
-        const $noticeList = $('table>tbody>tr');
-        sectionNotice = [];
-
-        const startDate = new Date();
-        startDate.setMinutes(startDate.getMinutes() - 5);
-        startDate.setSeconds(0);
-        startDate.setMilliseconds(0);
-
-        for (let i = 0; i < $noticeList.length; i++) {
-            const url = $($noticeList[i]).find('.subject > a').attr('href').replace('/viewcount.do?rtnUrl=', 'http://board.sejong.ac.kr').replace(/\^/g, '&').match(/.+searchValue=/)[0];
-            const subHtml = await axios.get(url);
-            const $sub = cheerio.load(subHtml.data);
-            const title = $sub('.subject-value').text().replace(/\t|\n/gi, '');
-            const date = $sub('td.date').text().replace(/\t|\n/gi, '');
-            const targetDate = new Date(date);
-	        // targetDate.setHours(targetDate.getHours()-9);
-            if (startDate <= targetDate) {
-                console.log(title);
-                console.log(date);
-                sectionNotice.push({
-                    title: title,
-                    url: url
-                });
-            } else break;
-        }
-        if (sectionNotice.length !== 0) {
-            notice.push({
-                'section': noticeNum[key],
-                'data': sectionNotice
-            });
-        };
-    }
-    const block = makeBlock(notice);
-    if (block.length !== 0) {
-        message(block);
-    }
-    // message(makeBlock(notice));
-}
+const app = new App({
+    token: process.env.TOKEN,
+    signingSecret: process.env.SIGNING_SECRET,
+    socketMode: true,
+    appToken: process.env.APP_TOKEN,
+    port: process.env.PORT || 3000
+});
 
 async function message(block) {
-    const res = await axios.post('https://slack.com/api/chat.postMessage',
-    {
+    await app.client.chat.postMessage({
         channel: 'C03U19KCXU7',
         text: '공지사항이 업로드되었습니다.',
         blocks: block
-    }, 
-    {
-        headers: {'Authorization': 'Bearer ' + token},
-    }
-    )
+    });
 }
 
-function makeBlock(notice) {
-    const block = [];
-    for (let i = 0; i < notice.length; i++) {
-        block.push({
-			"type": "header",
-			"text": {
-				"type": "plain_text",
-				"text": `[${notice[i].section}]`,
-				"emoji": true
-			}
-		})
-        for (let j = 0; j < notice[i].data.length; j++) {
-            block.push({
-                "type": 'section',
-                "text": {
-                    "type": "mrkdwn",
-                    "text": notice[i].data[j].title
-                },
-                "accessory": {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "Click Me",
-                        "emoji": true
-                    },
-                    "value": "click_me_123",
-                    "url": notice[i].data[j].url,
-                    "action_id": "button-action"
-                }
-            })
-        }
-        block.push({
-            "type": "divider"
-        })
-    }
-    return block;
+app.action('remind_click', async ({ body, ack, client }) => {
+    await ack();
+    await client.reminders.add({
+        token: process.env.USER_TOKEN,
+        text: body.actions[0].value,
+        time: 'in 6 hours'
+    });
+    await client.chat.postMessage({
+        channel: body.user.id,
+        text: `${body.actions[0].value}(이)가 6시간 후에 리마인드됩니다.`
+    });
+});
+
+(async () => {
+    await app.start();
+    console.log('⚡️ Bolt app is running!');
+})();
+
+async function main() {
+    const res = await crawling();
+    if (res.length !== 0) message(res);
+    cron.schedule('*/5 * * * *', async () => {
+        console.log('------'+new Date() + '실행------');
+        const res = await crawling();
+        if (res.length !== 0) message(res);
+    })
 }
 
-cron.schedule('*/5 * * * *', () => {
-    console.log('------'+new Date() + '실행------');
-    crawling();
-})
-
-crawling();
+main();
