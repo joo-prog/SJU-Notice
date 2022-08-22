@@ -36,7 +36,7 @@ async function crawling () {
             const title = $sub('.subject-value').text().replace(/\t|\n/gi, '');
             const date = $sub('td.date').text().replace(/\t|\n/gi, '');
             const targetDate = new Date(date);
-	    targetDate.setHours(targetDate.getHours()-9);
+	        // targetDate.setHours(targetDate.getHours()-9);
             if (startDate <= targetDate) {
                 console.log(title);
                 console.log(date);
@@ -53,13 +53,18 @@ async function crawling () {
             });
         };
     }
-    message(makeBlock(notice));
+    const block = makeBlock(notice);
+    if (block.length !== 0) {
+        message(block);
+    }
+    // message(makeBlock(notice));
 }
 
 async function message(block) {
     const res = await axios.post('https://slack.com/api/chat.postMessage',
     {
         channel: 'C03U19KCXU7',
+        text: '공지사항이 업로드되었습니다.',
         blocks: block
     }, 
     {
