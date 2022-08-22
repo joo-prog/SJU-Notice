@@ -36,7 +36,7 @@ async function crawling () {
             const title = $sub('.subject-value').text().replace(/\t|\n/gi, '');
             const date = $sub('td.date').text().replace(/\t|\n/gi, '');
             const targetDate = new Date(date);
-            targetDate.setHours(targetDate.getHours() + 9);
+	    targetDate.setHours(targetDate.getHours()-9);
             if (startDate <= targetDate) {
                 console.log(title);
                 console.log(date);
@@ -110,3 +110,5 @@ cron.schedule('*/5 * * * *', () => {
     console.log('------'+new Date() + '실행------');
     crawling();
 })
+
+crawling();
