@@ -21,7 +21,11 @@ module.exports = async function crawling () {
         const $noticeList = $('table>tbody>tr');
         sectionNotice = [];
 
-        const startDate = new Date();
+        const date = new Date();
+        const startDate = new Date(date);
+        const endDate = new Date(date);
+        endDate.setSeconds(0);
+        endDate.setMilliseconds(0);
         startDate.setMinutes(startDate.getMinutes() - 5);
         startDate.setSeconds(0);
         startDate.setMilliseconds(0);
@@ -34,7 +38,7 @@ module.exports = async function crawling () {
             const date = $sub('td.date').text().replace(/\t|\n/gi, '');
             const targetDate = new Date(date);
 	        targetDate.setHours(targetDate.getHours()-9);
-            if (startDate <= targetDate) {
+            if (startDate <= targetDate && targetDate <= endDate) {
                 console.log(title);
                 console.log(date);
                 sectionNotice.push({
