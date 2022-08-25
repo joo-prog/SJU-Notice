@@ -15,7 +15,7 @@ const app = new App({
 
 async function message(block) {
     await app.client.chat.postMessage({
-        channel: 'C03U19KCXU7',
+        channel: 'C03UP62U0R5',
         text: '공지사항이 업로드되었습니다.',
         blocks: block
     });
